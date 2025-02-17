@@ -30,6 +30,12 @@ app = Flask(__name__)
 # Store your recipes here!
 cookbook = {}
 
+# helper function to clear cookbook
+@app.route('/clear', methods=['POST'])
+def clear():
+    cookbook.clear()
+    return 'cleared', 200
+
 # Task 1 helper (don't touch)
 @app.route("/parse", methods=['POST'])
 def parse():
@@ -93,17 +99,18 @@ def create_entry():
 
 # [TASK 3] ====================================================================
 # Helper function to recursively get ingredients
-def get_ingredients(ingredients, required_items, mult):
+def get_ingredients(recipe, required_items, mult):
 	for item in required_items:
 		if item['name'] not in cookbook:
 			return 'ingredient not in cookbook', 400
 		
 		if cookbook[item['name']]['type'] == 'recipe':
-			msg, status = get_ingredients(ingredients, cookbook[item['name']]['requiredItems'], mult * item['quantity'])
+			msg, status = get_ingredients(recipe, cookbook[item['name']]['requiredItems'], mult * item['quantity'])
 			if status != 200:
 				return msg, status
 		else:
-			ingredients[item['name']] = ingredients.get(item['name'], 0) + item['quantity'] * mult
+			recipe['cookTime'] += cookbook[item['name']]['cookTime'] * item['quantity'] * mult
+			recipe['ingredients'][item['name']] = recipe['ingredients'].get(item['name'], 0) + item['quantity'] * mult
 
 	return None, 200
 
@@ -118,13 +125,12 @@ def summary():
 		return 'name is not a recipe name', 400
 	
 	recipe =  {
-		'type': 'recipe',
 		'name': recipe_name,
+		'cookTime': 0,
+		'ingredients': {}
 	}
 
-	ingredients = {}
-	msg, status = get_ingredients(ingredients, cookbook[recipe_name]['requiredItems'], 1)
-	print(ingredients)
+	msg, status = get_ingredients(recipe, cookbook[recipe_name]['requiredItems'], 1)
 	if status != 200:
 		return msg, status
 	recipe['ingredients'] = [
@@ -132,10 +138,10 @@ def summary():
 			'name': name,
 			'quantity': quantity
 		}
-		for name, quantity in ingredients.items()
+		for name, quantity in recipe['ingredients'].items()
 	]
 
-	return recipe, 200
+	return jsonify(recipe), 200
 
 
 # =============================================================================
